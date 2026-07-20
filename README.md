@@ -43,7 +43,7 @@ Requirements:
 - macOS 26 or later.
 - Xcode 26.6 or later.
 
-Clone the repository, open `Cubase Preference Utility.xcodeproj`, allow Swift Package Manager to resolve ZIPFoundation, and run the **Cubase Preference Utility** scheme. Public source builds do not require Michael’s Apple development team. Xcode can use ad-hoc signing for local development.
+Clone the repository, open `Cubase Preference Utility.xcodeproj`, allow Swift Package Manager to resolve ZIPFoundation, and run the **Cubase Preference Utility** scheme.
 
 Command-line verification:
 
