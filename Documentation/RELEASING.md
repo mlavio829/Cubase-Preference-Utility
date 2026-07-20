@@ -14,6 +14,6 @@ Add these environment secrets:
 | `APP_STORE_CONNECT_KEY_ID` | App Store Connect key identifier |
 | `APP_STORE_CONNECT_ISSUER_ID` | App Store Connect issuer identifier |
 
-The repository must never contain these files or values. The release job verifies that the tag matches `MARKETING_VERSION`, builds with Hardened Runtime, signs the app and DMG, submits the DMG to Apple notarization, staples the result, runs Gatekeeper verification, generates a SHA-256 checksum, and publishes both artifacts.
+The repository must never contain these files or values. The release job verifies that the tag matches `MARKETING_VERSION`, builds with Hardened Runtime, signs the app, submits a temporary ZIP to Apple notarization, staples the accepted ticket to the app, and then creates the final release ZIP. It verifies the final archive after extraction, generates a SHA-256 checksum, and publishes the ZIP and checksum.
 
 To release version `1.0`, update and commit the project’s version, then create and push an annotated `v1.0` tag. Approval of the protected `release` environment starts credential-bearing steps.

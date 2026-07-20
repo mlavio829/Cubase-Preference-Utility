@@ -29,9 +29,10 @@ Missing folders are recorded in the manifest and skipped. Restoring a snapshot r
 ## Install
 
 1. Open the latest [GitHub Release](https://github.com/mlavio829/Cubase-Preference-Utility/releases/latest).
-2. Download the notarized DMG.
-3. Drag **Cubase Preference Utility** into Applications.
-4. Launch the app and choose a backup-library folder.
+2. Download `Cubase-Preference-Utility-<version>.zip`, which contains the signed and notarized app.
+3. Double-click the ZIP to extract it.
+4. Drag **Cubase Preference Utility** into Applications.
+5. Launch the app and choose a backup-library folder.
 
 Always quit Cubase before a backup or restore. The app blocks the operation when a running Cubase process is detected.
 

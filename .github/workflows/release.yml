@@ -79,22 +79,20 @@ jobs:
           codesign --verify --deep --strict --verbose=2 "$app_path"
           codesign --display --verbose=4 "$app_path"
 
-      - name: Create and sign DMG
+      - name: Create notarization archive
         shell: bash
         run: |
           set -euo pipefail
           version="${GITHUB_REF_NAME#v}"
           app_path="$RUNNER_TEMP/CubasePreferenceUtility.xcarchive/Products/Applications/Cubase Preference Utility.app"
-          staging="$RUNNER_TEMP/dmg-root"
-          artifact="Cubase-Preference-Utility-${version}.dmg"
-          mkdir -p "$staging"
-          ditto "$app_path" "$staging/Cubase Preference Utility.app"
-          ln -s /Applications "$staging/Applications"
-          hdiutil create -volname "Cubase Preference Utility" -srcfolder "$staging" -format UDZO -ov "$artifact"
-          codesign --force --timestamp --sign "Developer ID Application" "$artifact"
+          notarization_archive="$RUNNER_TEMP/Cubase-Preference-Utility-${version}-notarization.zip"
+          artifact="Cubase-Preference-Utility-${version}.zip"
+          ditto -c -k --keepParent "$app_path" "$notarization_archive"
+          echo "APP_PATH=$app_path" >> "$GITHUB_ENV"
+          echo "NOTARIZATION_ARCHIVE=$notarization_archive" >> "$GITHUB_ENV"
           echo "ARTIFACT=$artifact" >> "$GITHUB_ENV"
 
-      - name: Notarize and staple DMG
+      - name: Notarize and staple app
         shell: bash
         env:
           APP_STORE_CONNECT_PRIVATE_KEY_BASE64: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY_BASE64 }}
@@ -104,14 +102,28 @@ jobs:
           set -euo pipefail
           key_path="$RUNNER_TEMP/AuthKey_${APP_STORE_CONNECT_KEY_ID}.p8"
           printf '%s' "$APP_STORE_CONNECT_PRIVATE_KEY_BASE64" | base64 --decode > "$key_path"
-          xcrun notarytool submit "$ARTIFACT" \
+          xcrun notarytool submit "$NOTARIZATION_ARCHIVE" \
             --key "$key_path" \
             --key-id "$APP_STORE_CONNECT_KEY_ID" \
             --issuer "$APP_STORE_CONNECT_ISSUER_ID" \
             --wait
-          xcrun stapler staple "$ARTIFACT"
-          xcrun stapler validate "$ARTIFACT"
-          spctl --assess --type open --context context:primary-signature --verbose=2 "$ARTIFACT"
+          xcrun stapler staple "$APP_PATH"
+          xcrun stapler validate "$APP_PATH"
+          codesign --verify --deep --strict --verbose=2 "$APP_PATH"
+          spctl --assess --type execute --verbose=2 "$APP_PATH"
+
+      - name: Create and verify release ZIP
+        shell: bash
+        run: |
+          set -euo pipefail
+          extracted="$RUNNER_TEMP/release-verification"
+          ditto -c -k --keepParent "$APP_PATH" "$ARTIFACT"
+          mkdir -p "$extracted"
+          ditto -x -k "$ARTIFACT" "$extracted"
+          extracted_app="$extracted/Cubase Preference Utility.app"
+          codesign --verify --deep --strict --verbose=2 "$extracted_app"
+          xcrun stapler validate "$extracted_app"
+          spctl --assess --type execute --verbose=2 "$extracted_app"
 
       - name: Create checksum
         shell: bash
