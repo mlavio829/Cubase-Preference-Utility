@@ -1,0 +1,53 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    name: Build and test
+    runs-on: macos-26
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Select Xcode 26.6
+        run: sudo xcode-select --switch /Applications/Xcode_26.6.app/Contents/Developer
+
+      - name: Resolve Swift packages
+        run: >-
+          xcodebuild
+          -project "Cubase Preference Utility.xcodeproj"
+          -scheme "Cubase Preference Utility"
+          -resolvePackageDependencies
+
+      - name: Run tests
+        run: >-
+          xcodebuild
+          -project "Cubase Preference Utility.xcodeproj"
+          -scheme "Cubase Preference Utility"
+          -configuration Debug
+          -destination "platform=macOS"
+          CODE_SIGN_IDENTITY=-
+          test
+
+      - name: Build Release configuration
+        run: >-
+          xcodebuild
+          -project "Cubase Preference Utility.xcodeproj"
+          -scheme "Cubase Preference Utility"
+          -configuration Release
+          -destination "generic/platform=macOS"
+          CODE_SIGNING_ALLOWED=NO
+          build

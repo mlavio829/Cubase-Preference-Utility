@@ -1,0 +1,134 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Sign, notarize, and publish
+    runs-on: macos-26
+    timeout-minutes: 45
+    environment: release
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Select Xcode 26.6
+        run: sudo xcode-select --switch /Applications/Xcode_26.6.app/Contents/Developer
+
+      - name: Verify tag matches app version
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag_version="${GITHUB_REF_NAME#v}"
+          app_version="$(xcodebuild -project 'Cubase Preference Utility.xcodeproj' -target 'Cubase Preference Utility' -configuration Release -showBuildSettings | awk '/MARKETING_VERSION =/ { print $3; exit }')"
+          if [[ "$tag_version" != "$app_version" ]]; then
+            echo "Tag $tag_version does not match MARKETING_VERSION $app_version" >&2
+            exit 1
+          fi
+
+      - name: Install Developer ID certificate
+        shell: bash
+        env:
+          DEVELOPER_ID_APPLICATION_P12_BASE64: ${{ secrets.DEVELOPER_ID_APPLICATION_P12_BASE64 }}
+          DEVELOPER_ID_APPLICATION_PASSWORD: ${{ secrets.DEVELOPER_ID_APPLICATION_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+        run: |
+          set -euo pipefail
+          certificate_path="$RUNNER_TEMP/developer-id.p12"
+          keychain_path="$RUNNER_TEMP/release-signing.keychain-db"
+          printf '%s' "$DEVELOPER_ID_APPLICATION_P12_BASE64" | base64 --decode > "$certificate_path"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$keychain_path"
+          security set-keychain-settings -lut 21600 "$keychain_path"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$keychain_path"
+          security import "$certificate_path" -P "$DEVELOPER_ID_APPLICATION_PASSWORD" -A -t cert -f pkcs12 -k "$keychain_path"
+          security set-key-partition-list -S apple-tool:,apple: -k "$KEYCHAIN_PASSWORD" "$keychain_path"
+          security list-keychains -d user -s "$keychain_path"
+
+      - name: Archive signed app
+        shell: bash
+        env:
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          set -euo pipefail
+          xcodebuild \
+            -project "Cubase Preference Utility.xcodeproj" \
+            -scheme "Cubase Preference Utility" \
+            -configuration Release \
+            -destination "generic/platform=macOS" \
+            -archivePath "$RUNNER_TEMP/CubasePreferenceUtility.xcarchive" \
+            DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
+            CODE_SIGN_STYLE=Manual \
+            CODE_SIGN_IDENTITY="Developer ID Application" \
+            OTHER_CODE_SIGN_FLAGS="--timestamp --options runtime" \
+            archive
+
+      - name: Verify app signature
+        shell: bash
+        run: |
+          set -euo pipefail
+          app_path="$RUNNER_TEMP/CubasePreferenceUtility.xcarchive/Products/Applications/Cubase Preference Utility.app"
+          codesign --verify --deep --strict --verbose=2 "$app_path"
+          codesign --display --verbose=4 "$app_path"
+
+      - name: Create and sign DMG
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="${GITHUB_REF_NAME#v}"
+          app_path="$RUNNER_TEMP/CubasePreferenceUtility.xcarchive/Products/Applications/Cubase Preference Utility.app"
+          staging="$RUNNER_TEMP/dmg-root"
+          artifact="Cubase-Preference-Utility-${version}.dmg"
+          mkdir -p "$staging"
+          ditto "$app_path" "$staging/Cubase Preference Utility.app"
+          ln -s /Applications "$staging/Applications"
+          hdiutil create -volname "Cubase Preference Utility" -srcfolder "$staging" -format UDZO -ov "$artifact"
+          codesign --force --timestamp --sign "Developer ID Application" "$artifact"
+          echo "ARTIFACT=$artifact" >> "$GITHUB_ENV"
+
+      - name: Notarize and staple DMG
+        shell: bash
+        env:
+          APP_STORE_CONNECT_PRIVATE_KEY_BASE64: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY_BASE64 }}
+          APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+        run: |
+          set -euo pipefail
+          key_path="$RUNNER_TEMP/AuthKey_${APP_STORE_CONNECT_KEY_ID}.p8"
+          printf '%s' "$APP_STORE_CONNECT_PRIVATE_KEY_BASE64" | base64 --decode > "$key_path"
+          xcrun notarytool submit "$ARTIFACT" \
+            --key "$key_path" \
+            --key-id "$APP_STORE_CONNECT_KEY_ID" \
+            --issuer "$APP_STORE_CONNECT_ISSUER_ID" \
+            --wait
+          xcrun stapler staple "$ARTIFACT"
+          xcrun stapler validate "$ARTIFACT"
+          spctl --assess --type open --context context:primary-signature --verbose=2 "$ARTIFACT"
+
+      - name: Create checksum
+        shell: bash
+        run: shasum -a 256 "$ARTIFACT" > "${ARTIFACT}.sha256"
+
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" "$ARTIFACT" "${ARTIFACT}.sha256" --verify-tag --generate-notes --title "Cubase Preference Utility ${GITHUB_REF_NAME#v}"
+
+      - name: Remove temporary keychain
+        if: always()
+        env:
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+        shell: bash
+        run: |
+          keychain_path="$RUNNER_TEMP/release-signing.keychain-db"
+          if [[ -f "$keychain_path" ]]; then
+            security delete-keychain "$keychain_path"
+          fi

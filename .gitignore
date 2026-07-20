@@ -1,0 +1,30 @@
+# macOS
+.DS_Store
+
+# Xcode user state and build output
+xcuserdata/
+*.xcuserstate
+DerivedData/
+build/
+*.xcresult
+*.xccheckout
+*.xcscmblueprint
+
+# Swift Package Manager local output
+.build/
+.swiftpm/xcode/package.xcworkspace/xcuserdata/
+
+# Signing, notarization, and local secrets
+*.p12
+*.cer
+*.provisionprofile
+*.mobileprovision
+AuthKey_*.p8
+*.keychain-db
+.env
+.env.*
+
+# Local release artifacts
+*.dmg
+*.sha256
+*.xcarchive
