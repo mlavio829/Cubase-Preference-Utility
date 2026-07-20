@@ -21,6 +21,21 @@ struct BackupServiceTests {
         ])
     }
 
+    @Test("Missing sources resolve to their nearest existing parent for Finder")
+    func missingSourceFinderFallback() throws {
+        let fixture = try TestFixture()
+        defer { fixture.remove() }
+        let audio = fixture.home.appending(path: "Library/Audio", directoryHint: .isDirectory)
+        try FileManager.default.createDirectory(at: audio, withIntermediateDirectories: true)
+        let source = BackupSource.cubase15Sources[2]
+
+        #expect(source.nearestExistingDirectory(relativeTo: fixture.home)?.standardizedFileURL == audio.standardizedFileURL)
+
+        let exactSource = source.url(relativeTo: fixture.home)
+        try FileManager.default.createDirectory(at: exactSource, withIntermediateDirectories: true)
+        #expect(source.nearestExistingDirectory(relativeTo: fixture.home)?.standardizedFileURL == exactSource.standardizedFileURL)
+    }
+
     @Test("Backup and restore round trip replaces stale contents and preserves absent sources")
     func backupAndRestoreRoundTrip() async throws {
         let fixture = try TestFixture()

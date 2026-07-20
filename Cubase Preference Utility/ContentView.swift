@@ -102,7 +102,8 @@ struct ContentView: View {
                 ForEach(model.sources) { source in
                     SourceCard(
                         source: source,
-                        status: model.sourceStatuses.first(where: { $0.id == source.id })
+                        status: model.sourceStatuses.first(where: { $0.id == source.id }),
+                        openInFinder: { model.openSourceFolder(source) }
                     )
                 }
             }
@@ -320,6 +321,7 @@ private struct OperationBanner: View {
 private struct SourceCard: View {
     let source: BackupSource
     let status: SourceStatus?
+    let openInFinder: () -> Void
 
     var body: some View {
         HStack(alignment: .top) {
@@ -349,7 +351,15 @@ private struct SourceCard: View {
         }
         .frame(maxWidth: .infinity, minHeight: 96, alignment: .topLeading)
         .cardSurface()
+        .contentShape(.interaction, .rect(cornerRadius: 14))
+        .contextMenu {
+            Button(action: openInFinder) {
+                Label("Open Folder Location", systemImage: "folder")
+            }
+        }
+        .help(status?.isPresent == true ? "Right-click to open this folder in Finder" : "Right-click to open the nearest available parent folder in Finder")
         .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("source-card-\(source.id.rawValue)")
     }
 
     private var statusText: String {

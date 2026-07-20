@@ -23,6 +23,20 @@ nonisolated struct BackupSource: Identifiable, Codable, Hashable, Sendable {
             }
     }
 
+    func nearestExistingDirectory(relativeTo homeDirectory: URL, fileManager: FileManager = .default) -> URL? {
+        var directoryURL = url(relativeTo: homeDirectory)
+        let homePath = homeDirectory.standardizedFileURL.path
+
+        while true {
+            var isDirectory: ObjCBool = false
+            if fileManager.fileExists(atPath: directoryURL.path, isDirectory: &isDirectory), isDirectory.boolValue {
+                return directoryURL
+            }
+            guard directoryURL.standardizedFileURL.path != homePath else { return nil }
+            directoryURL.deleteLastPathComponent()
+        }
+    }
+
     static let cubase15Sources: [BackupSource] = [
         BackupSource(
             id: .steinbergContent,

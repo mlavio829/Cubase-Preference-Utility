@@ -176,6 +176,11 @@ final class AppModel {
         NSWorkspace.shared.activateFileViewerSelecting([record.url])
     }
 
+    func openSourceFolder(_ source: BackupSource) {
+        guard let directoryURL = source.nearestExistingDirectory(relativeTo: homeDirectory) else { return }
+        NSWorkspace.shared.open(directoryURL)
+    }
+
     func openReleases() {
         NSWorkspace.shared.open(AppInfo.releasesURL)
     }
