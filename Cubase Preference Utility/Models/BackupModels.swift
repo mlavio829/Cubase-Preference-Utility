@@ -99,6 +99,7 @@ nonisolated struct BackupManifest: Identifiable, Codable, Hashable, Sendable {
     let appVersion: String
     let macOSVersion: String
     let cubaseVersion: String?
+    let computerName: String?
     let sources: [BackupSourceSnapshot]
 
     init(
@@ -110,6 +111,7 @@ nonisolated struct BackupManifest: Identifiable, Codable, Hashable, Sendable {
         appVersion: String,
         macOSVersion: String,
         cubaseVersion: String?,
+        computerName: String? = nil,
         sources: [BackupSourceSnapshot]
     ) {
         self.formatIdentifier = formatIdentifier
@@ -120,6 +122,7 @@ nonisolated struct BackupManifest: Identifiable, Codable, Hashable, Sendable {
         self.appVersion = appVersion
         self.macOSVersion = macOSVersion
         self.cubaseVersion = cubaseVersion
+        self.computerName = computerName
         self.sources = sources
     }
 

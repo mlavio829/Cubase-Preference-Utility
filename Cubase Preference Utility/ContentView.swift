@@ -387,6 +387,11 @@ private struct BackupRow: View {
                     .font(.headline)
                 Text(record.manifest.createdAt.formatted(date: .abbreviated, time: .shortened))
                     .foregroundStyle(.secondary)
+                if let computerName = record.manifest.computerName {
+                    Text(computerName)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
                 Text("\(record.manifest.presentSources.count) folders · \(ByteCountFormatter.string(fromByteCount: record.archiveByteCount, countStyle: .file))")
                     .font(.caption)
                     .foregroundStyle(.secondary)

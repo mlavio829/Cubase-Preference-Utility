@@ -258,6 +258,7 @@ actor BackupService {
             appVersion: appVersion,
             macOSVersion: ProcessInfo.processInfo.operatingSystemVersionString,
             cubaseVersion: cubaseVersion,
+            computerName: Self.currentComputerName(),
             sources: snapshots
         )
         let manifestData = try encoder.encode(manifest)
@@ -429,7 +430,19 @@ actor BackupService {
         formatter.locale = Locale(identifier: "en_US_POSIX")
         formatter.dateFormat = "yyyy-MM-dd HHmmss"
         let prefix = manifest.kind == .preRestore ? "Pre-Restore" : "Cubase Settings"
-        return "\(prefix) - \(formatter.string(from: manifest.createdAt)).cubasebackup"
+        let computerSuffix = manifest.computerName.map { " - \(Self.sanitizeForFilename($0))" } ?? ""
+        return "\(prefix)\(computerSuffix) - \(formatter.string(from: manifest.createdAt)).cubasebackup"
+    }
+
+    private static func currentComputerName() -> String {
+        if let name = Host.current().localizedName, !name.isEmpty {
+            return name
+        }
+        return ProcessInfo.processInfo.hostName.replacingOccurrences(of: ".local", with: "")
+    }
+
+    private static func sanitizeForFilename(_ name: String) -> String {
+        name.replacingOccurrences(of: "/", with: "-").replacingOccurrences(of: ":", with: "-")
     }
 
     private func uniqueDestination(for filename: String, in libraryURL: URL) -> URL {
